@@ -1,9 +1,49 @@
 import 'dotenv/config';
 
-import { Client, GatewayIntentBits } from 'discord.js';
-// import fs from 'node:fs';
-// import path from 'node:path';
+import { Events } from 'discord.js';
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+import discordClient from './services/discordClient';
 
-client.login(process.env.TOKEN);
+import commands from './commands';
+
+// commands import
+for (const command of commands) {
+  if ('data' in command && 'execute' in command) {
+    discordClient.commands.set(command.data.name, command);
+  } else {
+    console.error(
+      `Esse comando: ${JSON.stringify(
+        command
+      )} está com "data" ou "execute ausentes"`
+    );
+  }
+}
+
+// login do bot
+discordClient.once(Events.ClientReady, (c) => {
+  console.log(`🟢 Ready! Logged in as ${c.user.tag}`);
+});
+discordClient.login(process.env.TOKEN);
+
+// bot interactions listener
+discordClient.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) {
+    console.error('Não é um comando');
+    return;
+  }
+
+  const command = interaction.client.commands.get(interaction.commandName);
+  if (!command) {
+    interaction.reply('esse comando nao existe o burrao!');
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (error) {
+    console.error(error);
+    await interaction.reply(
+      'essa merda q se ta falando nao da pra fazer o arrombado!'
+    );
+  }
+});
